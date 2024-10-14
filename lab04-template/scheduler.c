@@ -25,9 +25,26 @@ struct job {
 struct job *head = NULL;
 
 
-void append_to(struct job **head_pointer, int arrival, int length, int tickets){
+void append_to(struct job **head_pointer, int arrival, int length, int tickets, int id_number){
 
     // TODO: create a new job and init it with proper data
+    struct job* new_job = (struct job*)malloc(sizeof(struct job));
+    new_job -> id = id_number;
+    new_job -> arrival = arrival;
+    new_job -> length = length;
+    new_job -> tickets = tickets;
+    new_job -> next = NULL;
+
+    if (*head_pointer == NULL){
+        *head_pointer = new_job;
+        return;
+    }
+    struct job* tail_pointer = *head_pointer;
+    while (tail_pointer -> next != NULL){
+        tail_pointer = tail_pointer->next;
+    }
+    tail_pointer->next = new_job;
+
     return;
 }
 
@@ -39,6 +56,7 @@ void read_job_config(const char* filename)
     size_t len = 0;
     ssize_t read;
     int tickets  = 0;
+    int id_number = 0;
 
     char* delim = ",";
     char *arrival = NULL;
@@ -50,6 +68,11 @@ void read_job_config(const char* filename)
         exit(EXIT_FAILURE);
 
     // TODO: if the file is empty, we should just exit with error
+    if ((read = getline(&line, &len, fp)) == -1){
+        fclose(fp);
+        free(line);
+        exit(EXIT_FAILURE);
+    }
     while ((read = getline(&line, &len, fp)) != -1)
     {
         if( line[read-1] == '\n' )
@@ -58,7 +81,8 @@ void read_job_config(const char* filename)
         length = strtok(NULL, delim);
         tickets += 100;
 
-        append_to(&head, atoi(arrival), atoi(length), tickets);
+        append_to(&head, atoi(arrival), atoi(length), tickets, id_number);
+	id_number++;
     }
 
     fclose(fp);
