@@ -68,10 +68,10 @@ void read_job_config(const char* filename)
         exit(EXIT_FAILURE);
 
     // TODO: if the file is empty, we should just exit with error
-    if ((read = getline(&line, &len, fp)) == -1){
-        fclose(fp);
-        free(line);
-        exit(EXIT_FAILURE);
+    //if ((read = getline(&line, &len, fp)) == -1){
+        //fclose(fp);
+        //free(line);
+        //exit(EXIT_FAILURE);
     }
     while ((read = getline(&line, &len, fp)) != -1)
     {
