@@ -5,7 +5,7 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-
+#include <stdbool.h>
 #define min(a,b) (((a)<(b))?(a):(b))
 
 // total jobs
@@ -74,7 +74,7 @@ void read_job_config(const char* filename)
         //fclose(fp);
         //free(line);
         //exit(EXIT_FAILURE);
-    }
+    // }
     while ((read = getline(&line, &len, fp)) != -1)
     {
         if( line[read-1] == '\n' )
@@ -95,8 +95,82 @@ void read_job_config(const char* filename)
 void policy_SJF()
 {
     printf("Execution trace with SJF:\n");
-
     // TODO: implement SJF policy
+    
+    int timer = 0;
+    struct job* temp = head;
+    struct job* timeFinder = head;
+    int compIDs[numofjobs];
+    compIDs[0] = -1;
+    int jobsFin = 0;
+    int shortestTime;
+    bool start = false;
+    shortestTime = -1;
+    
+    while (jobsFin < numofjobs)
+    {
+        if (jobsFin != 0){
+
+            // id checker
+            bool notfinished = true;
+            int length = sizeof(compIDs) / sizeof(compIDs[0]);
+            for (int i = 0; i < length; i++)
+            {
+                if (compIDs[i] == temp->id){
+                    notfinished = false;
+                    break;
+                }
+            }
+            if (notfinished){
+                if (temp->arrival <= timer){
+                    if (shortestTime > temp->length || shortestTime == -1){
+                        shortestTime = temp->length;
+                        timeFinder = temp;
+                    }
+                } 
+            }
+        } else {
+            if (temp->arrival <= timer){
+                if (shortestTime > temp->length || shortestTime == -1){
+                    shortestTime = temp->length;
+                    timeFinder = temp;
+                }
+            }
+        }
+        if (start){
+            if (shortestTime == -1){
+                timer++;
+                start = false;
+                temp = head;
+                continue;
+            }
+            temp = head;
+            // printf("instart\n");
+            while(temp != NULL){
+                if (temp->id == timeFinder->id){
+                    printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", timer, temp->id, temp->arrival, temp-> length);
+                    timer += temp->length;
+                    compIDs[jobsFin] = temp->id;
+                    // printf("%d" , compIDs[jobsFin]);
+                    jobsFin++;
+                    start = false;
+                    temp = head;
+                    shortestTime = -1;
+                    break;
+                }
+                temp = temp->next;
+            }
+        } else {
+            temp = temp->next;
+            if (temp == NULL){
+                temp = head;
+                start = true;
+            }
+        }
+    }
+    
+        
+    
 
     printf("End of execution with SJF.\n");
 
@@ -235,6 +309,122 @@ int main(int argc, char **argv){
     else if (strcmp(pname, "SJF") == 0)
     {
         // TODO
+        policy_SJF();
+        if (analysis == 1){
+            printf("Begin analyzing SJF:\n");
+            struct job* temp = head;
+            int timer = 0;
+            int currentJob = 0;
+            int response_time[numofjobs];
+            int turnaround[numofjobs];
+            int wait_time[numofjobs];
+            int response_time_sum = 0;
+            int turnaround_sum = 0;
+            int wait_time_sum = 0;
+
+            struct job* timeFinder = head;
+            int compIDs[numofjobs];
+            compIDs[0] = -1;
+            int jobsFin = 0;
+            int shortestTime;
+            bool start = false;
+            shortestTime = -1;
+
+            while (jobsFin < numofjobs)
+            {
+                if (jobsFin != 0){
+
+                    // id checker
+                    bool notfinished = true;
+                    int length = sizeof(compIDs) / sizeof(compIDs[0]);
+                    for (int i = 0; i < length; i++)
+                    {
+                        if (compIDs[i] == temp->id){
+                            notfinished = false;
+                            break;
+                        }
+                    }
+                    if (notfinished){
+                        if (temp->arrival <= timer){
+                            if (shortestTime > temp->length || shortestTime == -1){
+                                response_time[currentJob] = timer-temp->arrival;
+                                turnaround[currentJob] = temp->length + response_time[currentJob];
+                                wait_time[currentJob] = response_time[currentJob];
+                                shortestTime = temp->length;
+                                timeFinder = temp;
+                            }
+                        } 
+                    }
+                } else {
+                    if (temp->arrival <= timer){
+                        if (shortestTime > temp->length || shortestTime == -1){
+                            response_time[currentJob] = timer-temp->arrival;
+                            turnaround[currentJob] = temp->length + response_time[currentJob];
+                            wait_time[currentJob] = response_time[currentJob];
+                            shortestTime = temp->length;
+                            timeFinder = temp;
+                        }
+                    }
+                }
+                if (start){
+                    if (shortestTime == -1){
+                        timer++;
+                        start = false;
+                        temp = head;
+                        continue;
+                    }
+                    temp = head;
+                    while(temp != NULL){
+                        if (temp->id == timeFinder->id){
+                            timer += temp->length; 
+                            compIDs[jobsFin] = temp->id;
+                            jobsFin++;
+                            start = false;
+                            temp = head;
+                            shortestTime = -1;
+                            currentJob++;
+                            break;
+                        }
+                        temp = temp->next;
+                    }
+                } else {
+                    temp = temp->next;
+                    if (temp == NULL){
+                        temp = head;
+                        start = true;
+                    }
+                }
+            }
+
+            for (int i = 0; i < numofjobs; i++)
+            {
+                response_time_sum += response_time[i];
+            }
+            for (int i = 0; i < numofjobs; i++)
+            {
+                turnaround_sum += turnaround[i];
+            }
+            for (int i = 0; i < numofjobs; i++)
+            {
+                wait_time_sum += wait_time[i];
+            }
+
+            for (int i = 0; i < numofjobs; i++)
+            {
+                for (int  j = 0; j < numofjobs; j++)
+                {
+                    if (i == compIDs[j]){
+                        printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n", i, response_time[j], 
+                        turnaround[j], wait_time[j]);
+                        break;
+                    }
+                    
+                }
+            }  
+            printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n", (float)response_time_sum/numofjobs, (float)turnaround_sum/numofjobs, (float)wait_time_sum/numofjobs);
+            printf("End analyzing SJF.\n");
+
+        }
     }
     else if (strcmp(pname, "STCF") == 0)
     {
