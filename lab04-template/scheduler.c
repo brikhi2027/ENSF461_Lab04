@@ -37,6 +37,7 @@ void append_to(struct job **head_pointer, int arrival, int length, int tickets, 
 
     if (*head_pointer == NULL){
         *head_pointer = new_job;
+	numofjobs++;
         return;
     }
     struct job* tail_pointer = *head_pointer;
@@ -44,6 +45,7 @@ void append_to(struct job **head_pointer, int arrival, int length, int tickets, 
         tail_pointer = tail_pointer->next;
     }
     tail_pointer->next = new_job;
+    numofjobs++;
 
     return;
 }
@@ -146,6 +148,17 @@ void policy_FIFO(){
     printf("Execution trace with FIFO:\n");
 
     // TODO: implement FIFO policy
+    struct job* curr_job = head;
+    int curr_time = 0;
+
+    while (curr_job != NULL){
+        if (curr_job->arrival > curr_time){
+            curr_time = curr_job->arrival;
+        }
+        printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", curr_time, curr_job->id, curr_job->arrival, curr_job->length);
+        curr_time += curr_job->length; 
+        curr_job = curr_job->next;
+    }
 
     printf("End of execution with FIFO.\n");
 }
@@ -186,6 +199,37 @@ int main(int argc, char **argv){
         policy_FIFO();
         if (analysis == 1){
             // TODO: perform analysis
+	    printf("Begin analyzing FIFO:\n");
+            struct job* curr_job = head;
+            int curr_time = 0;
+            int response_time;
+            int turnaround;
+            int wait_time;
+            int response_time_sum = 0;
+            int turnaround_sum = 0;
+            int wait_time_sum = 0;
+            while (curr_job != NULL){
+                if (curr_job->arrival > curr_time){
+                    curr_time = curr_job->arrival;
+                    response_time = 0;
+                    turnaround = curr_job->length;
+                    wait_time = response_time;
+                }
+                else{
+                    response_time = curr_time - curr_job->arrival;
+                    turnaround = curr_time + curr_job->length - curr_job->arrival;
+                    wait_time = response_time;
+                }
+                response_time_sum += response_time;
+                turnaround_sum += turnaround;
+                wait_time_sum += wait_time;
+                printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n", curr_job->id, response_time, turnaround, wait_time);
+                curr_time += curr_job->length; 
+
+                curr_job = curr_job->next;
+            }
+            printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n", (float)response_time_sum/numofjobs, (float)turnaround_sum/numofjobs, (float)wait_time_sum/numofjobs);
+            printf("End analyzing FIFO.\n");
         }
     }
     else if (strcmp(pname, "SJF") == 0)
