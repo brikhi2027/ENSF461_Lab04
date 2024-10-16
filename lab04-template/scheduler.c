@@ -21,8 +21,18 @@ struct job {
     struct job *next;
 };
 
+struct jobPair{
+    struct job* datum;
+    struct jobPair* next;
+    int remainingTime;
+    int startTime;
+    int compTime;
+    int standbyTime;
+};
 // the workload list
 struct job *head = NULL;
+
+struct jobPair* LotLLhead = NULL;
 
 
 void append_to(struct job **head_pointer, int arrival, int length, int tickets, int id_number){
@@ -50,6 +60,47 @@ void append_to(struct job **head_pointer, int arrival, int length, int tickets, 
     return;
 }
 
+void addLL(struct jobPair* dest, struct job* src){
+    while(1){
+        if(dest->next == NULL){
+            dest->next = (struct jobPair*)malloc(sizeof(struct jobPair));
+            dest->next->next = NULL;
+            dest->next->datum = src;
+
+            dest->startTime = -1;
+            dest->compTime = -1;
+            dest->remainingTime = src->length;
+            dest->standbyTime = -1;
+
+            break;
+        }
+        dest = dest->next;
+    }
+}
+void deleteLL(struct jobPair* dest, struct job* src){
+    struct jobPair* prev = NULL;
+    while (dest != NULL){
+        if (dest->datum->id == src->id){
+            if(dest->next == NULL){
+                if(prev != NULL){
+                    prev->next = NULL;
+                } else {
+                    LotLLhead = NULL;
+                }
+                free(dest);
+            } else if (prev == NULL){
+                LotLLhead = LotLLhead->next;
+                free(dest);
+            } else {
+                prev->next = dest->next;
+                free(dest);
+            }
+            break;
+        }
+        prev = dest;
+        dest = dest->next;
+    }
+}
 
 void read_job_config(const char* filename)
 {
@@ -213,6 +264,83 @@ void policy_LT(int slice)
     // int winning_ticket = rand() % total_tickets;
     // And pick the winning job using the linked list approach discussed in class, or equivalent
 
+    struct job* temp = head;
+
+    LotLLhead = (struct jobPair*)malloc(sizeof(struct jobPair));
+    LotLLhead->datum = temp;
+    LotLLhead-> next = NULL;
+
+    LotLLhead->startTime = -1;
+    LotLLhead->compTime = -1;
+    LotLLhead->remainingTime = temp->length;
+    LotLLhead->standbyTime = -1;
+
+    struct jobPair* JPPointer = LotLLhead;
+
+    int total = temp->tickets;
+    temp = temp->next;
+
+    while (temp != NULL){
+        total = total + temp->tickets;
+        addLL(JPPointer, temp);
+        JPPointer = LotLLhead;
+        temp = temp->next;
+    }
+    int winning_ticket = rand() % total;
+    int current = JPPointer->datum->arrival;
+    int unfinishedJobs = numofjobs;
+    
+    while (unfinishedJobs){  
+        int usedTickets = 0;
+        int newAT = 0;
+        JPPointer = LotLLhead;
+        
+        while(JPPointer != NULL){
+            usedTickets += JPPointer->datum->tickets;
+            if(current < JPPointer->datum->arrival){
+                newAT++;
+                if(newAT == unfinishedJobs+1){
+                    current = JPPointer->datum->arrival;
+                }
+            } else if (winning_ticket < usedTickets){
+                break;
+            }
+            JPPointer = JPPointer->next;
+            if(JPPointer == NULL){
+                JPPointer = LotLLhead;
+                winning_ticket -= usedTickets;
+                usedTickets = 0;
+            }
+        }
+
+
+        winning_ticket = rand() % total;
+        printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", current, JPPointer->datum->id, JPPointer->datum->arrival, slice);
+
+        if (JPPointer->startTime == -1){
+            JPPointer->startTime = current;
+        }
+        current += slice;
+        JPPointer->remainingTime -= slice;
+
+        if(JPPointer->remainingTime <= 0){
+            if (JPPointer->compTime == -1){
+                JPPointer->compTime = current;
+            }
+            JPPointer->remainingTime = JPPointer->datum->length;
+            JPPointer->standbyTime = current - JPPointer->datum->arrival - JPPointer->remainingTime;
+
+            unfinishedJobs -= 1;
+            temp = JPPointer->datum;
+            JPPointer = LotLLhead;
+
+            deleteLL(JPPointer, temp);
+
+            if(unfinishedJobs == 0){
+                break;
+            }
+        }      
+    }
     printf("End of execution with LT.\n");
 
 }
@@ -437,6 +565,7 @@ int main(int argc, char **argv){
     else if (strcmp(pname, "LT") == 0)
     {
         // TODO
+        policy_LT(slice);
     }
 
 	exit(0);
