@@ -18,6 +18,9 @@ struct job {
     int length;
     int tickets; // number of tickets for lottery scheduling
     // TODO: add any other metadata you need to track here
+    int execution_time_remaining;
+    int start_time;
+    int completion_time;
     struct job *next;
 };
 
@@ -43,11 +46,14 @@ void append_to(struct job **head_pointer, int arrival, int length, int tickets, 
     new_job -> arrival = arrival;
     new_job -> length = length;
     new_job -> tickets = tickets;
+    new_job -> execution_time_remaining = length;
+    new_job -> start_time = -1;
+    new_job -> completion_time = -1;
     new_job -> next = NULL;
 
     if (*head_pointer == NULL){
         *head_pointer = new_job;
-	numofjobs++;
+	    numofjobs++;
         return;
     }
     struct job* tail_pointer = *head_pointer;
@@ -233,6 +239,55 @@ void policy_STCF()
     printf("Execution trace with STCF:\n");
 
     // TODO: implement STCF policy
+    int curr_time = 0;
+    int completed_jobs = 0;
+    while (completed_jobs < numofjobs){
+        struct job* curr_job = head;
+        struct job* shortest_job = NULL;
+        while (curr_job != NULL){
+            if (curr_job->arrival <= curr_time && curr_job->execution_time_remaining > 0){
+                if (shortest_job == NULL || curr_job->execution_time_remaining < shortest_job->execution_time_remaining){
+                    shortest_job = curr_job;
+                }
+            }
+            curr_job = curr_job->next;
+        }
+        if (shortest_job == NULL){
+            curr_job = head;
+            int next_job_arrival = 10000;
+            while (curr_job != NULL){
+                if (curr_job->arrival > curr_time && curr_job->execution_time_remaining > 0){
+                    if (curr_job->arrival < next_job_arrival){
+                        next_job_arrival = curr_job->arrival;
+                    }
+                }
+                curr_job = curr_job->next;
+            }
+            curr_time = next_job_arrival;
+            continue;
+        }
+
+        struct job* next_job = shortest_job->next;
+        int running_time = shortest_job->execution_time_remaining;
+        if (next_job != NULL && next_job->arrival > curr_time){
+            int time_until_next_job = next_job->arrival - curr_time;
+            if (time_until_next_job < running_time){
+                running_time = time_until_next_job;
+            }
+        }
+        if (shortest_job->start_time == -1){
+            shortest_job->start_time = curr_time;
+        }
+        printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", curr_time, shortest_job->id, shortest_job->arrival, running_time);
+        curr_time += running_time;
+        shortest_job->execution_time_remaining -= running_time;
+        if (shortest_job->execution_time_remaining == 0){
+            shortest_job->completion_time = curr_time;
+            completed_jobs++;
+        }
+        
+    }
+    
 
     printf("End of execution with STCF.\n");
 }
@@ -546,6 +601,31 @@ int main(int argc, char **argv){
     else if (strcmp(pname, "STCF") == 0)
     {
         // TODO
+        policy_STCF();
+        if (analysis == 1){
+            printf("Begin analyzing STCF:\n");
+            struct job* curr_job = head;
+            int response_time;
+            int turnaround;
+            int wait_time;
+            int response_time_sum = 0;
+            int turnaround_sum =0 ;
+            int wait_time_sum = 0;
+            while (curr_job != NULL){
+                response_time = curr_job->start_time - curr_job->arrival;
+                turnaround = curr_job->completion_time - curr_job->arrival;
+                wait_time = turnaround - curr_job->length;
+                
+                response_time_sum += response_time;
+                turnaround_sum += turnaround;
+                wait_time_sum += wait_time;
+
+                printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n", curr_job->id, response_time, turnaround, wait_time);
+                curr_job = curr_job->next;
+            }
+            printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n", (float)response_time_sum/numofjobs, (float)turnaround_sum/numofjobs, (float)wait_time_sum/numofjobs);
+            printf("End analyzing STCF.\n");
+        }
     }
     else if (strcmp(pname, "RR") == 0)
     {
