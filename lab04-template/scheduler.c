@@ -242,11 +242,95 @@ void policy_STCF()
 }
 
 
-void policy_RR(int slice)
-{
+void policy_RR(int slice) {
     printf("Execution trace with RR:\n");
 
-    // TODO: implement RR policy
+    int current_time = 0;
+    struct job* ready_queue[numofjobs];
+    int queue_start = 0;
+    int queue_end = 0;
+
+    // Load initial jobs that arrive at time 0
+    struct job* current_job = head;
+    while (current_job != NULL) {
+        if (current_job->arrival <= current_time) {
+            ready_queue[queue_end++] = current_job;
+        }
+        current_job = current_job->next;
+    }
+
+    while (queue_start < queue_end) {
+        struct job* job = ready_queue[queue_start++];
+
+        // Set start time if this is the first execution of the job
+        if (job->start_time == -1) {
+            job->start_time = current_time;
+        }
+
+       
+        
+        
+
+        // Run the job for a time slice or the remaining time, whichever is less
+        int execution_time = min(slice, job->execution_time_remaining);
+        job->execution_time_remaining -= execution_time;
+        printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", 
+               current_time, job->id, job->arrival, execution_time);
+        current_time += execution_time;
+
+        // Add any new arrivals during the execution to the end of the queue
+        current_job = head;
+        while (current_job != NULL) {
+            if (current_job->arrival <= current_time &&
+                current_job->execution_time_remaining > 0 &&
+                current_job->start_time == -1) {
+                bool in_queue = false;
+                for (int i = queue_start; i < queue_end; i++) {
+                    if (ready_queue[i] == current_job) {
+                        in_queue = true;
+                        break;
+                    }
+                }
+                if (!in_queue) {
+                    ready_queue[queue_end++] = current_job;
+                }
+            }
+            current_job = current_job->next;
+        }
+
+        // If job has remaining time, re-enqueue it for another round
+        if (job->execution_time_remaining > 0) {
+            ready_queue[queue_end++] = job;
+        } else {
+            // Mark completion for jobs that finish
+            job->completion_time = current_time;
+        }
+
+        // If the queue becomes empty, idle until the next job arrives
+        if (queue_start >= queue_end) {
+            int next_arrival = INT_MAX;
+            current_job = head;
+            while (current_job != NULL) {
+                if (current_job->arrival > current_time &&
+                    current_job->execution_time_remaining > 0) {
+                    next_arrival = min(next_arrival, current_job->arrival);
+                }
+                current_job = current_job->next;
+            }
+            if (next_arrival != INT_MAX) {
+                current_time = next_arrival;
+                current_job = head;
+                while (current_job != NULL) {
+                    if (current_job->arrival <= current_time &&
+                        current_job->execution_time_remaining > 0 &&
+                        current_job->start_time == -1) {
+                        ready_queue[queue_end++] = current_job;
+                    }
+                    current_job = current_job->next;
+                }
+            }
+        }
+    }
 
     printf("End of execution with RR.\n");
 }
@@ -511,9 +595,46 @@ int main(int argc, char **argv){
 
         }
     }
-    else if (strcmp(pname, "RR") == 0)
-    {
-        // TODO
+    else if (strcmp(pname, "RR") == 0) {
+        policy_RR(slice);
+        if (analysis == 1) {
+            printf("Begin analyzing RR:\n");
+
+            struct job* curr_job = head;
+            int response_time;
+            int turnaround;
+            int wait_time;
+            int response_time_sum = 0;
+            int turnaround_sum = 0;
+            int wait_time_sum = 0;
+
+            while (curr_job != NULL) {
+            // Response time is the first time the job runs minus its arrival time
+                response_time = curr_job->start_time - curr_job->arrival;
+                if (response_time < 0) response_time = 0;  // Ensure no negative response times
+
+            // Turnaround time is the job's completion time minus its arrival time
+                turnaround = curr_job->completion_time - curr_job->arrival;
+
+            // Wait time is turnaround time minus the job's length
+                wait_time = turnaround - curr_job->length;
+
+                response_time_sum += response_time;
+                turnaround_sum += turnaround;
+                wait_time_sum += wait_time;
+
+                printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n",
+                   curr_job->id, response_time, turnaround, wait_time);
+
+                curr_job = curr_job->next;
+            }
+
+            printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n",
+               (float)response_time_sum / numofjobs,
+               (float)turnaround_sum / numofjobs,
+               (float)wait_time_sum / numofjobs);
+            printf("End analyzing RR.\n");
+        }
     }
     else if (strcmp(pname, "LT") == 0)
     {
