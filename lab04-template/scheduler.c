@@ -67,10 +67,10 @@ void addLL(struct jobPair* dest, struct job* src){
             dest->next->next = NULL;
             dest->next->datum = src;
 
-            dest->startTime = -1;
-            dest->compTime = -1;
-            dest->remainingTime = src->length;
-            dest->standbyTime = -1;
+            dest-> next -> startTime = -1;
+            dest->next -> compTime = -1;
+            dest->next -> remainingTime = src->length;
+            dest->next -> standbyTime = -1;
 
             break;
         }
@@ -264,37 +264,35 @@ void policy_LT(int slice)
     // int winning_ticket = rand() % total_tickets;
     // And pick the winning job using the linked list approach discussed in class, or equivalent
 
-    struct job* temp = head;
+    struct job* mainList = head;
 
     LotLLhead = (struct jobPair*)malloc(sizeof(struct jobPair));
-    LotLLhead->datum = temp;
+    LotLLhead->datum = mainList;
     LotLLhead-> next = NULL;
+    struct jobPair* JPPointer = LotLLhead;
 
     LotLLhead->startTime = -1;
     LotLLhead->compTime = -1;
-    LotLLhead->remainingTime = temp->length;
+    LotLLhead->remainingTime = mainList->length;
     LotLLhead->standbyTime = -1;
 
-    struct jobPair* JPPointer = LotLLhead;
+    int total = mainList->tickets;
+    mainList = mainList->next;
 
-    int total = temp->tickets;
-    temp = temp->next;
-
-    while (temp != NULL){
-        total = total + temp->tickets;
-        addLL(JPPointer, temp);
-        JPPointer = LotLLhead;
-        temp = temp->next;
+    while (mainList){
+        total += mainList->tickets;
+        addLL(JPPointer, mainList);
+        mainList = mainList->next;
     }
+
     int winning_ticket = rand() % total;
-    int current = JPPointer->datum->arrival;
     int unfinishedJobs = numofjobs;
+    int current = JPPointer->datum->arrival;
     
     while (unfinishedJobs){  
         int usedTickets = 0;
         int newAT = 0;
         JPPointer = LotLLhead;
-        
         while(JPPointer != NULL){
             usedTickets += JPPointer->datum->tickets;
             if(current < JPPointer->datum->arrival){
@@ -317,26 +315,17 @@ void policy_LT(int slice)
         winning_ticket = rand() % total;
         printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", current, JPPointer->datum->id, JPPointer->datum->arrival, slice);
 
-        if (JPPointer->startTime == -1){
-            JPPointer->startTime = current;
-        }
         current += slice;
         JPPointer->remainingTime -= slice;
 
         if(JPPointer->remainingTime <= 0){
-            if (JPPointer->compTime == -1){
-                JPPointer->compTime = current;
-            }
-            JPPointer->remainingTime = JPPointer->datum->length;
-            JPPointer->standbyTime = current - JPPointer->datum->arrival - JPPointer->remainingTime;
-
             unfinishedJobs -= 1;
-            temp = JPPointer->datum;
+            mainList = JPPointer->datum;
             JPPointer = LotLLhead;
 
-            deleteLL(JPPointer, temp);
+            deleteLL(JPPointer, mainList);
 
-            if(unfinishedJobs == 0){
+            if(unfinishedJobs < 0){
                 break;
             }
         }      
@@ -566,7 +555,120 @@ int main(int argc, char **argv){
     {
         // TODO
         policy_LT(slice);
+
+        if (analysis == 1){
+            printf("Begin analyzing LT:\n");
+            int response_time_sum = 0;
+            int turnaround_sum = 0;
+            int wait_time_sum = 0;
+            int compIds[numofjobs];
+            for (int i = 0; i < numofjobs; i++)
+            {
+                compIds[i] = i;
+            }
+            int response_time[numofjobs];
+            int turnaround[numofjobs];
+            int wait_time[numofjobs];
+            srand(42);
+            struct job* mainList = head;
+
+            LotLLhead = (struct jobPair*)malloc(sizeof(struct jobPair));
+            LotLLhead->datum = mainList;
+            LotLLhead-> next = NULL;
+            struct jobPair* JPPointer = LotLLhead;
+
+            LotLLhead->startTime = -1;
+            LotLLhead->compTime = -1;
+            LotLLhead->remainingTime = mainList->length;
+            LotLLhead->standbyTime = -1;
+
+            int total = mainList->tickets;
+            mainList = mainList->next;
+
+            while (mainList){
+                total += mainList->tickets;
+                addLL(JPPointer, mainList);
+                mainList = mainList->next;
+            }
+
+            int winning_ticket = rand() % total;
+            int unfinishedJobs = numofjobs;
+            int current = JPPointer->datum->arrival;
+            
+            while (unfinishedJobs){  
+                int usedTickets = 0;
+                int newAT = 0;
+                JPPointer = LotLLhead;
+                while(JPPointer != NULL){
+                    usedTickets += JPPointer->datum->tickets;
+                    if(current < JPPointer->datum->arrival){
+                        newAT++;
+                        if(newAT == unfinishedJobs+1){
+                            current = JPPointer->datum->arrival;
+                        }
+                    } else if (winning_ticket < usedTickets){
+                        break;
+                    }
+                    JPPointer = JPPointer->next;
+                    if(JPPointer == NULL){
+                        JPPointer = LotLLhead;
+                        winning_ticket -= usedTickets;
+                        usedTickets = 0;
+                    }
+                }
+
+
+                winning_ticket = rand() % total;
+                // printf("t=%d: [Job %d] arrived at [%d], ran for: [%d]\n", current, JPPointer->datum->id, JPPointer->datum->arrival, slice);
+
+                if (JPPointer->startTime == -1){
+                    JPPointer->startTime = current;
+                }
+                current += slice;
+                JPPointer->remainingTime -= slice;
+
+                if(JPPointer->remainingTime <= 0){
+                    if (JPPointer->compTime == -1){
+                        JPPointer->compTime = current;
+                    }
+                    JPPointer->remainingTime = JPPointer->datum->length;
+                    JPPointer->standbyTime = current - JPPointer->datum->arrival - JPPointer->remainingTime;
+
+                    for (int i = 0; i < numofjobs; i++)
+                    {
+                        if (compIds[i] == JPPointer->datum->id){
+                            response_time[i] = JPPointer->startTime - JPPointer->datum->arrival;
+                            turnaround[i] = JPPointer->compTime - JPPointer->datum->arrival;
+                            wait_time[i] = JPPointer->standbyTime;
+                        }
+                    }
+                    
+
+                    unfinishedJobs -= 1;
+                    mainList = JPPointer->datum;
+                    JPPointer = LotLLhead;
+
+                    deleteLL(JPPointer, mainList);
+
+                    if(unfinishedJobs < 0){
+                        break;
+                    }
+                }      
+            }
+            for (int i = 0; i < numofjobs; i++)
+            {
+                printf("Job %d -- Response time: %d  Turnaround: %d  Wait: %d\n", compIds[i], response_time[i], turnaround[i], wait_time[i]);
+                response_time_sum += response_time[i];
+                turnaround_sum += turnaround[i];
+                wait_time_sum += wait_time[i];
+            }
+            
+
+            printf("Average -- Response: %.2f  Turnaround %.2f  Wait %.2f\n", (float)response_time_sum/numofjobs, (float)turnaround_sum/numofjobs, (float)wait_time_sum/numofjobs);
+            printf("End analyzing LT.\n");
+        }
     }
+
 
 	exit(0);
 }
